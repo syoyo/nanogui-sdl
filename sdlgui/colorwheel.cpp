@@ -18,7 +18,104 @@
 #include <SDL2/SDL.h>
 #endif
 
+#include <thread>
+
+#include "nanovg.h"
+#define NANOVG_RT_IMPLEMENTATION
+#define NANORT_IMPLEMENTATION
+#include "nanovg_rt.h"
+
 NAMESPACE_BEGIN(sdlgui)
+
+struct ColorWheel::AsyncTexture
+{
+  Texture tex;
+  NVGcontext* ctx = nullptr;
+
+  void load_body(ColorWheel* ptr, bool enabled)
+  {
+    ColorWheel* cw = ptr;
+    AsyncTexture* self = this;
+    std::thread tgr([=]() {
+      Theme* mTheme = cw->theme();
+      std::lock_guard<std::mutex> guard(mTheme->loadMutex);
+
+      int ww = cw->width();
+      int hh = cw->height();
+      int rh = hh / 3;
+      //auto mRange = slider->range();
+      //auto mHighlightedRange = slider->highlightedRange();
+      NVGcontext *ctx = nvgCreateRT(NVG_DEBUG, ww, hh, 0);
+/*
+
+      float pxRatio = 1.0f;
+      nvgBeginFrame(ctx, ww, hh, pxRatio);
+
+      Vector2f center = slider->size().cast<float>() * 0.5f;
+      int rectround = hh / 2;
+      float kr = (int)(hh * 0.4f), kshadow = 3;
+
+      float startX = kr + kshadow + 0;
+      float widthX = ww - 2 * (kr + kshadow);
+
+      NVGpaint bg = nvgBoxGradient(
+        ctx, 0, center.y - rh/2 + 1, ww, rh, 3, 3,
+        Color(0, enabled ? 32 : 10).toNvgColor(), Color(0, enabled ? 128 : 210).toNvgColor());
+
+      nvgBeginPath(ctx);
+      nvgRoundedRect(ctx, 0, center.y - rh/2 + 1, ww, rh, 2);
+      nvgFillPaint(ctx, bg);
+      nvgFill(ctx);
+
+      if (mHighlightedRange.second != mHighlightedRange.first) 
+      {
+        nvgBeginPath(ctx);
+        nvgRoundedRect(ctx, startX + mHighlightedRange.first * ww,
+          center.y - kshadow + 1,
+          widthX *  (mHighlightedRange.second - mHighlightedRange.first),
+          kshadow * 2, 2);
+        nvgFillColor(ctx, slider->highlightColor().toNvgColor());
+        nvgFill(ctx);
+      }
+
+*/
+      nvgEndFrame(ctx);
+      self->tex.rrect = { 0, 0, ww, hh };
+      self->ctx = ctx;
+    });
+
+    tgr.detach();
+  }
+
+  void perform(SDL_Renderer* renderer)
+  {
+    if (!ctx)
+      return;
+
+    unsigned char *rgba = nvgReadPixelsRT(ctx);
+
+    if (tex.tex)
+    {
+      int w, h;
+      SDL_QueryTexture(tex.tex, nullptr, nullptr, &w, &h);
+      if (w != tex.w() || h != tex.h())
+        SDL_DestroyTexture(tex.tex);
+    }
+
+    if (!tex.tex)
+      tex.tex = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, tex.w(), tex.h());
+
+    int pitch;
+    uint8_t *pixels;
+    int ok = SDL_LockTexture(tex.tex, nullptr, (void **)&pixels, &pitch);
+    memcpy(pixels, rgba, sizeof(uint32_t) * tex.w() * tex.h());
+    SDL_SetTextureBlendMode(tex.tex, SDL_BLENDMODE_BLEND);
+    SDL_UnlockTexture(tex.tex);
+
+    nvgDeleteRT(ctx);
+    ctx = nullptr;
+  }
+};
 
 ColorWheel::ColorWheel(Widget *parent, const Color& rgb)
     : Widget(parent), mDragRegion(None) 
@@ -33,16 +130,17 @@ Vector2i ColorWheel::preferredSize(SDL_Renderer *) const
 
 void ColorWheel::draw(SDL_Renderer *renderer) 
 {
-/*    Widget::draw(ctx);
+    Widget::draw(renderer);
 
     if (!mVisible)
         return;
 
-    float x = mPos.x(),
-          y = mPos.y(),
-          w = mSize.x(),
-          h = mSize.y();
+    float x = _pos[0],
+          y = _pos[1],
+          w = mSize[0],
+          h = mSize[1];
 
+/*
     SDL_Renderer* vg = ctx;
 
     int i;
@@ -141,7 +239,7 @@ void ColorWheel::draw(SDL_Renderer *renderer)
     nvgRestore(vg);
 
     nvgRestore(vg);
-    */
+*/
 }
 
 bool ColorWheel::mouseButtonEvent(const Vector2i &p, int button, bool down,
@@ -278,7 +376,7 @@ Color ColorWheel::color() const
 
 void ColorWheel::setColor(const Color &rgb) 
 {
-/*    float r = rgb[0], g = rgb[1], b = rgb[2];
+    float r = rgb[0], g = rgb[1], b = rgb[2];
 
     float max = std::max({ r, g, b });
     float min = std::min({ r, g, b });
@@ -300,6 +398,7 @@ void ColorWheel::setColor(const Color &rgb)
 
         mHue = h;
 
+/*
         Eigen::Matrix<float, 4, 3> M;
         M.topLeftCorner<3, 1>() = hue2rgb(h).head<3>();
         M(3, 0) = 1.;
@@ -311,8 +410,8 @@ void ColorWheel::setColor(const Color &rgb)
 
         mBlack = bary[1];
         mWhite = bary[2];
+*/
     }
-    */
 }
 
 NAMESPACE_END(sdlgui)

@@ -311,6 +311,16 @@ public:
         return Color(r() + c.r(), g() + c.g(), b() + c.b(), a() + c.a());
     }
 
+    float &operator[](int index)
+    {
+        return _d.rgba[index];
+    }
+
+    float operator[](int index) const
+    {
+        return _d.rgba[index];
+    }
+
     SDL_Color toSdlColor() const;
     NVGcolor toNvgColor() const;
 

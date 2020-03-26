@@ -13,6 +13,7 @@
 #pragma once
 
 #include <sdlgui/widget.h>
+#include <memory>
 
 NAMESPACE_BEGIN(sdlgui)
 
@@ -52,6 +53,11 @@ protected:
     float mBlack;
     Region mDragRegion;
     std::function<void(const Color &)> mCallback;
+
+    struct AsyncTexture;
+    typedef std::shared_ptr<AsyncTexture> AsyncTexturePtr;
+    AsyncTexturePtr _atx;
+
 };
 
 NAMESPACE_END(sdlgui)
